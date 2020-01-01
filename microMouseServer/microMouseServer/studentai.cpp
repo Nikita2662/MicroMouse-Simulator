@@ -68,6 +68,7 @@ void microMouseServer::studentAI()
 
         else if (isWallLeft() && !isWallRight()&& isWallForward()){
             // R only open
+
         }
 
         else if (!isWallLeft() && isWallRight()&& isWallForward()){
