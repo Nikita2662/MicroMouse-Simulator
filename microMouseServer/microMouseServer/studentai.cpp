@@ -11,20 +11,23 @@ char const *temp="test";
 
 QPoint mousepos;
 
-struct storeStruct{
+struct storeStruct {
     int x, y;
     char d1, d2, d3='O';
 };
+
 vector<storeStruct> storeVec;
 
-bool reverseflag=0;
-int cnt, pathcnt,  colcnt, i, j=0;
+
+bool stackflag=0;
+int   colcnt, i, j=0;
 int rowcnt=MAZE_HEIGHT-1;
-int learnCell[MAZE_WIDTH][MAZE_HEIGHT];
+
 char directionflag='N';
 
 
-void microMouseServer::studentAI(){
+void microMouseServer::studentAI() {
+
     /*
  * The following are the eight functions that you can call. Feel free to create your own fuctions as well.
  * Remember that any solution that calls moveForward more than once per call of studentAI() will have points deducted.
@@ -44,24 +47,60 @@ void microMouseServer::studentAI(){
  * void printUI(const char *mesg);
 */
 
-    // Intialize the array to store the values of each individual cell
-    for (j=0;j<MAZE_HEIGHT;j++) {
-        for (i=0;i<MAZE_WIDTH;i++){
-            learnCell[i][j]=0;
-        }
-    }
+    mousepos.setX(colcnt);
+    mousepos.setY(rowcnt);
 
     if (rowcnt<20 && colcnt<20) {
-        if (reverseflag==0 ) {
-            // first time the cell is visited
-            mousepos.setX(colcnt);
-            mousepos.setY(rowcnt);
 
+        int s = storeVec.size();
+        if (s>0){
+            for (int z=0;z<s;z++)
+            {
+                // Accessing structure members using their names.
+                if (mousepos.x()==storeVec[z].x && mousepos.y()==storeVec[z].y && !(storeVec[z].d1=='O')) {
+                    // If the cell is revisited
+                    stackflag=1;
+                    if (storeVec[z].d1=='L' || storeVec[z].d1=='R'){
+                        if (isWallLeft()) {
+                            turnRight();
+                            if (storeVec[z].d2=='L'){
+                                storeVec.push_back({mousepos.x(),mousepos.y(),'L','O','O'});
+                            }
+
+                            else {
+                                storeVec.push_back({mousepos.x(),mousepos.y(),'O','O','O'});
+                            }
+
+                            if (directionflag=='N') {
+                                directionflag='E';
+                            }
+
+                            else if (directionflag=='S') {
+                                directionflag='W';
+                            }
+
+                            else if (directionflag=='E') {
+                                directionflag='S';
+                            }
+
+                            else if (directionflag=='W') {
+                                directionflag='N';
+                            }
+                        }
+                    }
+                }
+
+                else {
+                    stackflag=0;
+                }
+            }
+        }
+
+        if (stackflag==0) {
+            // first time the cell is visited
 
             if (isWallLeft() && isWallRight()&& isWallForward()){
                 // Dead end - FRL closed
-                reverseflag=1;
-
                 turnLeft();
                 turnLeft();
                 if (directionflag=='N') {
@@ -82,13 +121,15 @@ void microMouseServer::studentAI(){
             }
 
             else if (!isWallLeft() && !isWallRight()&& !isWallForward()){
-                // FRL open, continue forward without changing direction
+                // FRL open, continue forward without changing the direction
                 storeVec.push_back({mousepos.x(),mousepos.y(),'R','L','O'});
                 printUI("FRL");
+
             }
 
             else if (isWallLeft() && isWallRight()&& !isWallForward()){
-                // F only open, continue forward without changing direction
+                // F only open, continue forward without changing the direction
+
             }
 
             else if (isWallLeft() && !isWallRight()&& isWallForward()){
@@ -110,6 +151,7 @@ void microMouseServer::studentAI(){
                 else if (directionflag=='W') {
                     directionflag='N';
                 }
+
             }
 
             else if (!isWallLeft() && isWallRight()&& isWallForward()){
@@ -132,7 +174,6 @@ void microMouseServer::studentAI(){
                     directionflag='S';
                 }
             }
-
             else if (!isWallLeft() && !isWallRight()&& isWallForward()){
                 // RL  open
                 storeVec.push_back({mousepos.x(),mousepos.y(),'L','O','O'});
@@ -157,245 +198,37 @@ void microMouseServer::studentAI(){
             }
 
             else if (!isWallLeft() && isWallRight()&& !isWallForward()){
-                // FL  open, continue forward without changing direction
+                // FL  open, continue forward without changing the direction
                 storeVec.push_back({mousepos.x(),mousepos.y(),'L','O','O'});
                 printUI("FL");
 
             }
 
             else if (isWallLeft() && !isWallRight()&& !isWallForward()){
-                // FR open, continue forward without changing direction
+                // FR open, continue forward without changing the direction
                 storeVec.push_back({mousepos.x(),mousepos.y(),'R','O','O'});
                 printUI("FR");
-                int s = storeVec.size();
-                for (int z=0;z<s;z++)                {
-                    // Accessing structure members using their names.
-                    stringstream strs;
-                    strs << storeVec[z].y;
-                    string temp_str = strs.str();
-                    char* char_type = (char*) temp_str.c_str();
-                    temp=char_type;
-                    printUI(temp);
-                }
             }
+        }
+        moveForward();
 
-            moveForward();
-
-            // Check the direction and set the row and column
-            if (directionflag=='N'){
-                rowcnt--;
-            }
-
-            else if (directionflag=='S'){
-                rowcnt++;
-            }
-
-            else if (directionflag=='E'){
-                colcnt++;
-            }
-
-            else if (directionflag=='W'){
-                colcnt--;
-            }
-
+        // Check the direction and adjust the row and column
+        if (directionflag=='N'){
+            rowcnt--;
         }
 
-        /*    mousepos.setX(colcnt);
-            mousepos.setY(rowcnt);
+        else if (directionflag=='S'){
+            rowcnt++;
+        }
 
-            if (isWallLeft() && isWallRight()&& isWallForward()){
-                // Dead end - FRL closed
-                reverseflag=1;
+        else if (directionflag=='E'){
+            colcnt++;
+        }
 
-                turnLeft();
-                turnLeft();
-                if (directionflag=='N') {
-                    directionflag='S';
-                }
-
-                else if (directionflag=='S') {
-                    directionflag='N';
-                }
-
-                else if (directionflag=='E') {
-                    directionflag='W';
-                }
-
-                else if (directionflag=='W') {
-                    directionflag='E';
-                }
-            }
-
-            else if (isWallLeft() && isWallRight()&& !isWallForward()){
-                // F only open, continue forward without changing direction
-            }
-
-            else if (isWallLeft() && !isWallRight()&& isWallForward()){
-                // R only open
-
-                turnRight();
-                storeVec.push_back({mousepos.x(),mousepos.y(),'O','O','O'});
-                if (directionflag=='N') {
-                    directionflag='E';
-                }
-
-                else if (directionflag=='S') {
-                    directionflag='W';
-                }
-
-                else if (directionflag=='E') {
-                    directionflag='S';
-                }
-
-                else if (directionflag=='W') {
-                    directionflag='N';
-                }
-
-            }
-
-            else if (!isWallLeft() && isWallRight()&& isWallForward()){
-                // L only open
-
-                turnLeft();
-                storeVec.push_back({mousepos.x(),mousepos.y(),'O','O','O'});
-                if (directionflag=='N') {
-                    directionflag='W';
-                }
-
-                else if (directionflag=='S') {
-                    directionflag='E';
-                }
-
-                else if (directionflag=='E') {
-                    directionflag='N';
-                }
-
-                else if (directionflag=='W') {
-                    directionflag='S';
-                }
-            }
-
-            else if (!isWallLeft() && !isWallRight()&& isWallForward()){
-                // RL  open
-
-                reverseflag="N";
-
-                int s = storeVec.size();
-                for (int z=0;z<s;z++){
-                    // Accessing structure members using their names.
-
-                    if (mousepos.x()==storeVec[z].x && mousepos.y()==storeVec[z].y){
-                        if (storeVec[z].d1=='L') {
-                            turnLeft();
-                            storeVec.push_back({mousepos.x(),mousepos.y(),'R','O','O'});
-                            if (directionflag=='N') {
-                                directionflag='W';
-                            }
-
-                            else if (directionflag=='S') {
-                                directionflag='E';
-                            }
-
-                            else if (directionflag=='E') {
-                                directionflag='N';
-                            }
-
-                            else if (directionflag=='W') {
-                                directionflag='S';
-                            }
-                        }
-                    }
-                }
-            }
-
-            else if (!isWallLeft() && isWallRight()&& !isWallForward()){
-                // FL  open, turn left
-                reverseflag="N";
-
-                int s = storeVec.size();
-                for (int z=0;z<s;z++) {
-                    // Accessing structure members using their names.
-
-                    if (mousepos.x()==storeVec[z].x && mousepos.y()==storeVec[z].y){
-                        if (storeVec[z].d1=='L') {
-                            turnLeft();
-                            storeVec.push_back({mousepos.x(),mousepos.y(),'F','O','O'});
-                            if (directionflag=='N') {
-                                directionflag='W';
-                            }
-
-                            else if (directionflag=='S') {
-                                directionflag='E';
-                            }
-
-                            else if (directionflag=='E') {
-                                directionflag='N';
-                            }
-
-                            else if (directionflag=='W') {
-                                directionflag='S';
-                            }
-                        }
-                    }
-                }
-            }
-
-            else if (isWallLeft() && !isWallRight()&& !isWallForward()){
-                // FR open, continue forward without changing direction
-                reverseflag="N";
-
-                int s = storeVec.size();
-                for (int z=0;z<s;z++) {
-                    // Accessing structure members using their names.
-
-                    if (mousepos.x()==storeVec[z].x && mousepos.y()==storeVec[z].y){
-                        if (storeVec[z].d1=='R') {
-                            turnRight();
-                            storeVec.push_back({mousepos.x(),mousepos.y(),'F','O','O'});
-                            if (directionflag=='N') {
-                                directionflag='E';
-                            }
-
-                            else if (directionflag=='S') {
-                                directionflag='W';
-                            }
-
-                            else if (directionflag=='E') {
-                                directionflag='S';
-                            }
-
-                            else if (directionflag=='W') {
-                                directionflag='N';
-                            }
-                        }
-                    }
-                }
-            }
-
-            moveForward();
-
-            // Check the direction and set the row and column
-            if (directionflag=='N'){
-                rowcnt--;
-            }
-
-            else if (directionflag=='S'){
-                rowcnt++;
-            }
-
-            else if (directionflag=='E'){
-                colcnt++;
-            }
-
-            else if (directionflag=='W'){
-                colcnt--;
-            }
-    */
-
+        else if (directionflag=='W'){
+            colcnt--;
+        }
     }
-
-    //turnRight();
-    //moveForward();
 }
 
 
