@@ -13,20 +13,21 @@ QPoint mousepos;
 
 struct storeStruct {
     int x, y;
-    char d1, d2, d3='O';
+    char pn, pe, pw, ps; // possible values: O for Open, C for closed, D for Dead, A not set
+    char direntns, direntew; // possible values: N/S and E/W for entered directions, A not set
 };
 
 vector<storeStruct> storeVec;
 
-
-bool stackflag=0;
+bool reentryflag=0;
 int   colcnt, i, j=0;
 int rowcnt=MAZE_HEIGHT-1;
 
 char directionflag='N';
+char finishflag='N';
 
 
-void microMouseServer::studentAI() {
+void microMouseServer::studentAI() { // studentai logic begins
 
     /*
  * The following are the eight functions that you can call. Feel free to create your own fuctions as well.
@@ -50,57 +51,118 @@ void microMouseServer::studentAI() {
     mousepos.setX(colcnt);
     mousepos.setY(rowcnt);
 
-    if (rowcnt<20 && colcnt<20) {
-
+    if (rowcnt<20 && colcnt<20 && rowcnt>=0 && colcnt>=0) { // Check to ensure it is not out of the area
         int s = storeVec.size();
-        if (s>0){
-            for (int z=0;z<s;z++)
-            {
-                // Accessing structure members using their names.
-                if (mousepos.x()==storeVec[z].x && mousepos.y()==storeVec[z].y && !(storeVec[z].d1=='O')) {
+        if (s>0){ // Check the stored items for this position
+            for (int z=0;z<s;z++) {
+                if (mousepos.x()==storeVec[z].x && mousepos.y()==storeVec[z].y) {
                     // If the cell is revisited
-                    stackflag=1;
-                    if (storeVec[z].d1=='L' || storeVec[z].d1=='R'){
-                        if (isWallLeft()) {
-                            turnRight();
-                            if (storeVec[z].d2=='L'){
-                                storeVec.push_back({mousepos.x(),mousepos.y(),'L','O','O'});
-                            }
+                    reentryflag=1;
 
-                            else {
-                                storeVec.push_back({mousepos.x(),mousepos.y(),'O','O','O'});
-                            }
-
-                            if (directionflag=='N') {
-                                directionflag='E';
-                            }
-
-                            else if (directionflag=='S') {
-                                directionflag='W';
-                            }
-
-                            else if (directionflag=='E') {
-                                directionflag='S';
-                            }
-
-                            else if (directionflag=='W') {
-                                directionflag='N';
-                            }
+                    if(directionflag=='N') { // Heading north
+                        //if (storeVec[z].direntns=='N') { // stored value North
+                        if (storeVec[z].ps=='D') {
+                            storeVec[z].pe='D';
                         }
-                    }
-                }
 
-                else {
-                    stackflag=0;
-                }
+                        else {
+                            storeVec[z].ps='D';
+                        }
+
+                        if (storeVec[z].pe=='O' && !isWallRight()) {
+                            turnRight();
+                            directionflag='E';
+                        }
+
+                        else if (storeVec[z].pw=='O' && !isWallLeft()) {
+                            turnLeft();
+                            directionflag='W';
+                            storeVec[z].pw='D';
+                        }
+                    } // Stored value North ends
+
+                    else if(directionflag=='S') { // Heading south
+
+                        //if (storeVec[z].direntns=='S') { // stored value South
+                        if (storeVec[z].pn=='D') {
+                            storeVec[z].pe='D';
+                        }
+
+                        else {
+                            storeVec[z].pn='D';
+                        }
+
+                        if (storeVec[z].pe=='O' && !isWallLeft()) {
+                            turnLeft();
+                            directionflag='E';
+                        }
+
+                        else if (storeVec[z].pw=='O' && !isWallRight()) {
+                            turnRight();
+                            directionflag='W';
+                            storeVec[z].pw='D';
+                        }
+                    } // Stored value South ends
+
+                    else if(directionflag=='E') { // Heading east
+                        //if (storeVec[z].direntew=='E') { // stored value East
+                        if (storeVec[z].pw=='D') {
+                            storeVec[z].pn='D';
+                        }
+
+                        else {
+                            storeVec[z].pw='D';}
+
+                        if (storeVec[z].pn=='O' && !isWallLeft()) {
+                            turnLeft();
+                            directionflag='N';
+                        }
+
+                        else if (storeVec[z].ps=='O' && !isWallRight()) {
+                            turnRight();
+                            directionflag='S';
+                            storeVec[z].ps='D';
+                        }
+
+                        stringstream strs;
+                        //strs << storeVec[z].pe;
+                        strs << mousepos.y();
+                        string temp_str = strs.str();
+                        char* char_type = (char*) temp_str.c_str();
+                        temp=char_type;
+                        printUI(temp);
+                        //printUI(mousepos.manhattanLength());
+                    } // Stored value East ends
+                    else if(directionflag=='W') { // Heading wast
+                        //if (storeVec[z].direntew=='W') { // stored value west
+                        if (storeVec[z].pe=='D') {
+                            storeVec[z].pn='D';
+                        }
+
+                        else {
+                            storeVec[z].pe='D';}
+
+                        if (storeVec[z].pn=='O' && !isWallRight()) {
+                            turnRight();
+                            directionflag='N';
+                        }
+
+                        else if (storeVec[z].ps=='O' && !isWallLeft()) {
+                            turnLeft();
+                            directionflag='S';
+                            storeVec[z].ps='D';
+                        }
+                    } // Stored value west ends
+                } // revisited cell  ends
+                else {reentryflag=0;}
             }
-        }
+        } // stored items check ends
 
-        if (stackflag==0) {
-            // first time the cell is visited
+        if (reentryflag==0) { // First time this cell is visited
 
             if (isWallLeft() && isWallRight()&& isWallForward()){
                 // Dead end - FRL closed
+
                 turnLeft();
                 turnLeft();
                 if (directionflag=='N') {
@@ -121,20 +183,30 @@ void microMouseServer::studentAI() {
             }
 
             else if (!isWallLeft() && !isWallRight()&& !isWallForward()){
-                // FRL open, continue forward without changing the direction
-                storeVec.push_back({mousepos.x(),mousepos.y(),'R','L','O'});
-                printUI("FRL");
+                // FRL open, set the vector
+                if (directionflag=='N') {
+                    storeVec.push_back({mousepos.x(),mousepos.y(),'O','O','O','O','S','A'});
+                }
 
+                else if (directionflag=='S') {
+                    storeVec.push_back({mousepos.x(),mousepos.y(),'O','O','O','O','N','A'});
+                }
+
+                else if (directionflag=='E') {
+                    storeVec.push_back({mousepos.x(),mousepos.y(),'O','O','O','O','A','W'});
+                }
+
+                else if (directionflag=='W') {
+                    storeVec.push_back({mousepos.x(),mousepos.y(),'O','O','O','O','A','E'});
+                }
             }
 
             else if (isWallLeft() && isWallRight()&& !isWallForward()){
-                // F only open, continue forward without changing the direction
-
+                // F only open, do nothing
             }
 
             else if (isWallLeft() && !isWallRight()&& isWallForward()){
-                // R only open
-
+                // R only open, set the direction
                 turnRight();
                 if (directionflag=='N') {
                     directionflag='E';
@@ -151,12 +223,10 @@ void microMouseServer::studentAI() {
                 else if (directionflag=='W') {
                     directionflag='N';
                 }
-
             }
 
             else if (!isWallLeft() && isWallRight()&& isWallForward()){
-                // L only open
-
+                // L only open, set the vector
                 turnLeft();
                 if (directionflag=='N') {
                     directionflag='W';
@@ -174,45 +244,72 @@ void microMouseServer::studentAI() {
                     directionflag='S';
                 }
             }
+
             else if (!isWallLeft() && !isWallRight()&& isWallForward()){
-                // RL  open
-                storeVec.push_back({mousepos.x(),mousepos.y(),'L','O','O'});
-                printUI("RL");
+                // RL  open, set the vector --- changed the directions - debug
                 turnRight();
                 if (directionflag=='N') {
+                    storeVec.push_back({mousepos.x(),mousepos.y(),'C','O','O','O','S','A'});
                     directionflag='E';
                 }
 
                 else if (directionflag=='S') {
+                    storeVec.push_back({mousepos.x(),mousepos.y(),'O','O','O','C','N','A'});
                     directionflag='W';
                 }
 
                 else if (directionflag=='E') {
+                    storeVec.push_back({mousepos.x(),mousepos.y(),'O','C','O','O','A','W'});
                     directionflag='S';
                 }
 
                 else if (directionflag=='W') {
+                    storeVec.push_back({mousepos.x(),mousepos.y(),'O','O','C','O','A','E'});
                     directionflag='N';
                 }
-
             }
 
             else if (!isWallLeft() && isWallRight()&& !isWallForward()){
-                // FL  open, continue forward without changing the direction
-                storeVec.push_back({mousepos.x(),mousepos.y(),'L','O','O'});
-                printUI("FL");
+                // FL  open, set the vector
+                if (directionflag=='N') {
+                    storeVec.push_back({mousepos.x(),mousepos.y(),'O','C','O','O','S','A'});
+                }
 
+                else if (directionflag=='S') {
+                    storeVec.push_back({mousepos.x(),mousepos.y(),'O','O','C','O','N','A'});
+                }
+
+                else if (directionflag=='E') {
+                    storeVec.push_back({mousepos.x(),mousepos.y(),'O','O','O','C','A','W'});
+                }
+
+                else if (directionflag=='W') {
+                    storeVec.push_back({mousepos.x(),mousepos.y(),'C','O','O','O','A','E'});
+                }
             }
 
             else if (isWallLeft() && !isWallRight()&& !isWallForward()){
-                // FR open, continue forward without changing the direction
-                storeVec.push_back({mousepos.x(),mousepos.y(),'R','O','O'});
-                printUI("FR");
-            }
-        }
-        moveForward();
+                // FR open, set the vector
+                if (directionflag=='N') {
+                    storeVec.push_back({mousepos.x(),mousepos.y(),'O','O','C','O','S','A'});
+                }
 
-        // Check the direction and adjust the row and column
+                else if (directionflag=='S') {
+                    storeVec.push_back({mousepos.x(),mousepos.y(),'O','C','O','O','N','A'});
+                }
+
+                else if (directionflag=='E') {
+                    storeVec.push_back({mousepos.x(),mousepos.y(),'C','O','O','O','A','W'});
+                }
+
+                else if (directionflag=='W') {
+                    storeVec.push_back({mousepos.x(),mousepos.y(),'O','O','O','C','A','E'});
+                }
+            }
+
+        } // First time cell visited ends
+
+        moveForward();
         if (directionflag=='N'){
             rowcnt--;
         }
@@ -228,7 +325,8 @@ void microMouseServer::studentAI() {
         else if (directionflag=='W'){
             colcnt--;
         }
-    }
-}
+
+    } // Area check with row and column ends
+} // studentai logic ends
 
 
