@@ -1,197 +1,333 @@
+
 #include "micromouseserver.h"
 #include "qstack.h"
+#include "qset.h"
+#include "qstring.h"
 
+
+enum Direction {West, East, North, South };
+enum Movement  {Left, Right, Forward, None};
+char debugText [512];
+
+class Position {
+public:
+    Position(){row=0;col=0; direction=North;}
+    Position(const Position& other){ // overloading
+        row = other.row;
+        col = other.col;
+        direction = other.direction;
+    }
+
+    int row;
+    int col;
+    Direction   direction;
+    const char* directionString[4] = {"W", "E", "N", "S"};
+
+    QString coordinateString() {
+        sprintf(debugText, "%d-%d", row, col); // printing row and col to string debugText
+        return QString(debugText);
+    }
+
+    char* debug(){
+        sprintf(debugText, "%d-%d-%s", row, col, directionString[direction]);
+        return debugText;
+    }
+
+    void advance(){ // adjusting row and col count based on movement made in a specific direction
+        if(direction == West) {
+            col -= 1;
+        }
+
+        else if (direction == East) {
+            col += 1;
+        }
+
+        else if (direction == North) {
+            row += 1;
+        }
+
+        else if (direction == South) {
+            row -= 1;
+        }
+    }
+
+    void changeDirection(Movement x) { // changes direction (NEWS) based on if right or left turn AND current direction
+        if (x == Right) {
+            switch(direction) {
+            case North:
+                direction = East;
+                break;
+            case South:
+                direction = West;
+                break;
+            case West:
+                direction = North;
+                break;
+            case East:
+                direction = South;
+                break;
+            }
+        }
+
+        else if (x == Left) {
+            switch(direction) {
+            case North:
+                direction = West;
+                break;
+            case South:
+                direction = East;
+                break;
+            case West:
+                direction = South;
+                break;
+            case East:
+                direction = North;
+                break;
+            }
+        }
+    }
+};
+
+
+class Path{
+public:
+    Position currPosition;
+    bool backtrack;
+    QStack<Movement> movements;
+    Path(){
+        backtrack = false;
+    }
+
+    void turnLeft() {
+        currPosition.changeDirection(Left);
+        if(!backtrack) movements.push(Left);
+    }
+
+    void turnRight() {
+        currPosition.changeDirection(Right);
+        if(!backtrack) movements.push(Right);
+    }
+
+    void moveForward() {
+        currPosition.advance();
+        if(!backtrack) movements.push(Forward);
+    };
+
+    Movement lastMovement() {
+        return movements.isEmpty() ? None : movements.pop();
+    }
+};
+
+class PositionWallCount {
+public:
+    Position position;
+    int wallCount;
+    PositionWallCount() {}
+
+    PositionWallCount(Position p, int c) { // overloaded
+        position = p;
+        wallCount = c;
+    }
+
+    char* debug() {
+        sprintf(debugText, "%s-%d", position.debug(), wallCount);
+        return debugText;
+    }
+};
+
+class AltPath {
+public:
+    Position position;
+    Movement turn;
+    AltPath(){}
+    AltPath (Position p, Movement t) { // overloaded
+        position = p;
+        turn = t;
+    }
+
+    AltPath(const AltPath& other){
+        position = other.position;
+        turn = other.turn;
+    }
+
+};
 
 void microMouseServer::studentAI() {
 
-    enum Direction {Left=1, Right, Top, Down };
-    class Position {
-    public:
-        Position(){row=0;col=0;direction=Top;}
-        int row;
-        int col;
-        char debugText[256];
-        Direction   direction;
-        char* debug(){
-            sprintf(debugText, "%d-%d-%d", row, col, direction);
-            return debugText;
-        }
-
-        void advance(){ // adjusts row and column count based on direction moved
-            if(direction == Left) {
-                col -= 1;
-            }
-
-            else if (direction == Right) {
-                col += 1;
-            }
-
-            else if (direction == Top) {
-                row += 1;
-            }
-
-            else if (direction == Down) {
-                row -= 1;
-            }
-        }
-        void changeDirect(Direction x) { // changes direction based on orientation of mouse
-            if (x == Right) {
-                switch(direction) {
-                case Top:
-                    direction = Right;
-                    break;
-                case Down:
-                    direction = Left;
-                    break;
-                case Left:
-                    direction = Top;
-                    break;
-                case Right:
-                    direction = Down;
-                    break;
-                }
-            }
-
-            else if (x == Left) {
-                switch(direction) {
-                case Top:
-                    direction = Left;
-                    break;
-                case Down:
-                    direction = Right;
-                    break;
-                case Left:
-                    direction = Down;
-                    break;
-                case Right:
-                    direction = Top;
-                    break;
-                }
-            }
-        }
-    };
-
-    class AltPath {
-    public:
-        Position position;
-        Direction direction;
-        AltPath(){
-
-        }
-
-        AltPath (Position p, Direction d) { // constructor
-            position = p;
-            direction = d;
-        }
-
-        AltPath(const AltPath& other){
-            position = other.position;
-            direction = other.direction;
-        }
-
-    };
-
-    static Position currPosition;
-    static QStack<AltPath> paths;
-
-    // PSEUDOCODE:
     // move forward until you reach a point where there is no wall left and/ or right
     // store alternative path (store which direction it is as part of currPosition)
     // once you reach a point where cannot move unless 2 turn rights/ left (3 walls), then backtracking
     // go to last decision point and take alternative path & delete alternative path
     // figure out if finished
 
-    char buf [250];
+    static Path  currPath;
+    // static Position currPosition;
+    static QStack<AltPath> altPaths;
+    static QSet<QString> visitedPositions;
+    static QList<PositionWallCount> previousPositions;
 
-    if (!isWallForward()){
-        if (!isWallLeft()) { // adds left as an alternative path
-            paths.push(AltPath(currPosition, Left));
-            // printUI("pushAltPath Left");
-            printUI(currPosition.debug());
-            sprintf(buf, "Left. stack size - %d", paths.size());
-            printUI(buf);
-        }
+    char buf[250];
+    bool forwardMove = false;
 
-        if (!isWallRight()) { // adds right as an alternative path
-            paths.push(AltPath(currPosition, Right));
-            //printUI("pushAltPath Right");
-            printUI(currPosition.debug());
+    sprintf(buf, "currPath Movement count %d", currPath.movements.count());
+    printUI(buf);
 
-            sprintf(buf, "Right. stack size - %d", paths.size());
-            printUI(buf);
-        }
+    bool alreadyVisitedCurrentPosition = visitedPositions.contains(currPath.currPosition.coordinateString());
+    //  get wall counts
+    int wallCount = (isWallForward() ? 1 : 0) + (isWallLeft() ? 1 : 0) + (isWallRight() ? 1 : 0);
 
-        moveForward();
-        currPosition.advance();
+    /* sprintf(buf, "prevCount-%d", previousPositions.count());
+    printUI(buf);
+    if(previousPositions.count() == 4) {
+        printUI(previousPositions[0].debug());
+        printUI(previousPositions[1].debug());
+        printUI(previousPositions[2].debug());
+        printUI(previousPositions[3].debug());
+    }
+    */
+
+    // if finished, mark finished and exit
+    if(previousPositions.count() == 4 && previousPositions[0].position.row == currPath.currPosition.row &&
+            previousPositions[0].position.col == currPath.currPosition.col &&
+            (abs(previousPositions[0].position.col - previousPositions[2].position.col) == 1
+             && abs(previousPositions[0].position.row - previousPositions[2].position.row) == 1) &&
+            (abs(previousPositions[1].position.col - previousPositions[3].position.col) == 1
+             && abs(previousPositions[1].position.row - previousPositions[3].position.row) == 1) &&
+            previousPositions[0].wallCount == 1 &&
+            previousPositions[1].wallCount == 1 &&
+            previousPositions[2].wallCount == 1 &&
+            previousPositions[3].wallCount == 1) {
+        printUI("foundFinish");
+        foundFinish();
+        return;
     }
 
-    else if(!isWallRight()){
-        if (!isWallLeft()) { // adds left as an alternative path
-            paths.push(AltPath(currPosition, Left));
-            // printUI("pushAltPath Left");
-            printUI(currPosition.debug());
-            sprintf(buf, "Left. stack size - %d", paths.size());
-            printUI(buf);
-
-        }
-    }
-
-    else { // if there is wall forward
-        if (!paths.isEmpty() && paths.top().position.row == currPosition.row
-                && paths.top().position.col == currPosition.col
-                /*&& paths.top().position.direction == currPosition.direction**/) { // if all conditions from top entry in paths match that of currPosition
-
+    // if the current node is already visited, then check if it is the top alt path
+    if(currPath.backtrack) {
+        if(!altPaths.isEmpty() && altPaths.top().position.row == currPath.currPosition.row
+                && altPaths.top().position.col == currPath.currPosition.col
+                /*&& altPaths.top().position.direction == currPosition.direction**/) {
+            // move per the top of the stack
+            currPath.backtrack = false;
             bool left = true;
-            if(paths.top().direction == Left &&
-                    paths.top().position.direction != currPosition.direction) {
+            if(altPaths.top().turn == Left &&
+                    altPaths.top().position.direction != currPath.currPosition.direction) {
                 left = false;
             }
 
-            else if(paths.top().direction == Right &&
-                    paths.top().position.direction == currPosition.direction){
+            else if(altPaths.top().turn == Right &&
+                    altPaths.top().position.direction == currPath.currPosition.direction){
                 left = false;
             }
 
             if (left) { // if alternative path is Left
                 turnLeft();
-                currPosition.changeDirect(Left);
-                //printUI("Taking AltPath left");
+                currPath.turnLeft();
             }
 
             else { // if alternative path is right
                 turnRight();
-                currPosition.changeDirect(Right);
-                //printUI("Taking AltPath Right");
+                currPath.turnRight();
             }
-            paths.pop();
-            sprintf(buf, "popped. stack size - %d", paths.size());
-            printUI(buf);
 
+            AltPath altPath = altPaths.pop();
+
+            sprintf(buf, "backtrack end at %d - %d.  Stack size after pop - %d", altPath.position.row, altPath.position.col, altPaths.size());
+            printUI(buf);
         }
 
-        else { // backtracking logic (after dead end)
-            printUI("backtrack");
-            if (isWallRight()) {
-                if (isWallLeft()) {
-                    turnRight();
-                    currPosition.changeDirect(Right);
-                    turnRight();
-                    currPosition.changeDirect(Right);
-                }
-
-                else {
-                    turnLeft();
-                    currPosition.changeDirect(Left);
-                }
-            }
-
-            else {
+        else {
+            // pop the currPath stack
+            Movement m = currPath.lastMovement();
+            switch(m) {
+            case Forward:
+                forwardMove = true;
+                break;
+            case Left:
                 turnRight();
-                currPosition.changeDirect(Right);
+                currPath.turnRight();
+                break;
+            case Right:
+                turnLeft();
+                currPath.turnLeft();
+                break;
             }
         }
     }
+
+    else {
+        if(wallCount == 3) {
+            //dead end
+            currPath.backtrack = true;
+            printUI("dead end. backtrack start");
+            // turn around
+            turnRight();
+            currPath.turnRight();
+            turnRight();
+            currPath.turnRight();
+            printUI(currPath.currPosition.debug());
+        }
+
+        else // movement possible {
+            // if forward is possible then
+            if(!isWallForward()) {
+                // save alternate altPaths if not backtracking
+                if(!alreadyVisitedCurrentPosition) {
+                    if (!isWallLeft()) { // adds left as an alternative path
+                        altPaths.push(AltPath(currPath.currPosition, Left));
+                        sprintf(buf, "Pushed Alt Path Left at %d - %d. Stack Size - %d", currPath.currPosition.row, currPath.currPosition.col, altPaths.size());
+                        printUI(buf);
+                    }
+
+                    if (!isWallRight()) { // adds right as an alternative path
+                        altPaths.push(AltPath(currPath.currPosition, Right));
+                        sprintf(buf, "Pushed Alt Path Right at %d - %d. Stack Size - %d", currPath.currPosition.row, currPath.currPosition.col, altPaths.size());
+                        printUI(buf);
+                    }
+                }
+                forwardMove = true;
+            }
+
+            else if(!isWallRight()) {
+                if (!alreadyVisitedCurrentPosition && !isWallLeft()) {
+                    // add left as an alternative path
+                    altPaths.push(AltPath(currPath.currPosition, Left));
+                    sprintf(buf, "Pushed Alt Path Left at %d - %d. Stack Size - %d", currPath.currPosition.row, currPath.currPosition.col, altPaths.size());
+                    printUI(buf);
+                }
+
+                sprintf(buf, "Turning Right at %d - %d", currPath.currPosition.row, currPath.currPosition.col);
+                printUI(buf);
+                turnRight();
+                currPath.turnRight();
+            }
+
+            else if(!isWallLeft()) {
+                sprintf(buf, "Turning Left at %d - %d", currPath.currPosition.row, currPath.currPosition.col);
+                printUI(buf);
+                turnLeft();
+                currPath.turnLeft();
+            }
+    }
+
+    visitedPositions.insert(currPath.currPosition.coordinateString());
+
+if (forwardMove) {
+    // keep track of only 4
+    if(previousPositions.count() >= 4) {
+        previousPositions.pop_front();
+    }
+
+    previousPositions.push_back(PositionWallCount(currPath.currPosition, wallCount));
+
+    sprintf(buf, "moving forward from %s", currPath.currPosition.debug());
+    printUI(buf);
+    moveForward();
+    currPath.moveForward();
+    printUI(currPath.currPosition.debug());
 }
+}
+
 
 /*
  * The following are the eight functions that you can call. Feel free to create your own functions as well.
