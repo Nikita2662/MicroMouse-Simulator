@@ -237,8 +237,18 @@ public:
         currPosition.advance();
     };
 
-    bool isFinished() { // need to add logic here!
-        return false;
+    bool isFinished() {
+        int startCount = previousPositions.length() - 4;
+        return (previousPositions.count() >= 4 && previousPositions[startCount + 0].position.row == currPosition.row && // if at least 4 squares visited previously (2x2 square) && if the 1st square visited = square right now
+                previousPositions[startCount + 0].position.col == currPosition.col &&
+                (abs(previousPositions[startCount + 0].position.col - previousPositions[startCount + 2].position.col) == 1
+                && abs(previousPositions[startCount + 0].position.row - previousPositions[startCount + 2].position.row) == 1) && // the 1st square & the 3rd square (diagonals) are apart by 1 row & 1 col
+                (abs(previousPositions[startCount + 1].position.col - previousPositions[startCount + 3].position.col) == 1
+                && abs(previousPositions[startCount + 1].position.row - previousPositions[startCount + 3].position.row) == 1) &&
+                previousPositions[startCount + 0].wallCount == 1 && // each position should only have 1 wall in front or left or right after turning
+                previousPositions[startCount + 1].wallCount == 1 &&
+                previousPositions[startCount + 2].wallCount == 1 &&
+                previousPositions[startCount + 3].wallCount == 1);
     }
 
     Movement moveBackOnePosition() { // backtracking
@@ -298,27 +308,24 @@ void microMouseServer::studentAI() {
     bool alreadyVisitedCurrentPosition = visitedPositions.contains(currPath.currPosition.coordinateString());
 
 
-    //  get wall counts
+    //  stores number of walls (forward, left, right)
     int wallCount = (isWallForward() ? 1 : 0) + (isWallLeft() ? 1 : 0) + (isWallRight() ? 1 : 0);
 
-    // if finished, mark finished and exit
-    if(currPath.isFinished())
-
-    {
+    // if finished, print message and call method
+    if(currPath.isFinished()) {
         printUI("foundFinish");
         foundFinish();
         return;
     }
 
-    // if backtracking, then check if it is the top alt path
-    if(currPath.backtrack)
-    {
+    // if backtracking, check if it is the top alternative path
+    if(currPath.backtrack) {
         Movement m = None;
         if(!altPaths.isEmpty() && altPaths.top().fromPosition.row == currPath.currPosition.row
                 && altPaths.top().fromPosition.col == currPath.currPosition.col
                 /*&& altPaths.top().position.direction == currPosition.direction**/)
         {
-            // move per the top of the stack
+            // move as per the top of the stack
             currPath.backtrack = false;
             AltPath altPath = altPaths.pop();
             m = currPath.currPosition.adjacentMovement(altPath.toPosition);
@@ -326,8 +333,8 @@ void microMouseServer::studentAI() {
             sprintf(buf, "backtrack end at %d - %d.  Stack size after pop - %d", altPath.fromPosition.row, altPath.fromPosition.col, altPaths.size());
             printUI(buf);
         }
-        else
-        {
+
+        else {
             // pop the currPath stack
             /**printUI(currPath.currPosition.debug());
             if(!currPath.previousPositions.isEmpty())
@@ -341,8 +348,7 @@ void microMouseServer::studentAI() {
         sprintf(buf, "Move is %d", m);
         printUI(buf);
 
-        switch(m)
-        {
+        switch(m) {
         case Right:
             turnRight();
             currPath.right();
@@ -357,83 +363,72 @@ void microMouseServer::studentAI() {
             turnRight();
             currPath.right();
             break;
-
-
         }
 
-        // if m is none, we reached the beginning and there is no alt path left to pursue
-        if (m != None)
-        {
+        // if m = none, mouse has backtracked to beginning and all alternative paths are exhausted
+        if (m != None) {
             forwardMove = true;
         }
-        else
-        {
+
+        else {
             foundFinish(); // didn't find a path
         }
     }
-    else
-    {
-        if(alreadyVisitedCurrentPosition || wallCount == 3)
-        {
-            //dead end
+
+    else {
+        if(alreadyVisitedCurrentPosition || wallCount == 3) { // dead end
             currPath.backtrack = true;
-            printUI("dead end or already visited. backtrack start");
+            printUI("dead end or already visited. start backtrack");
             printUI(currPath.currPosition.debug());
         }
-        else // movement possible
-        {
+
+        else // movement possible {
             forwardMove = true;
-            // if forward is possible then
-            if(!isWallForward())
-            {
-                // save alternate altPaths if not backtracking
-                if(!alreadyVisitedCurrentPosition)
-                {
-                    if (!isWallLeft()) { // adds left as an alternative path
-                        altPaths.push(AltPath(currPath.currPosition, Left));
-                        sprintf(buf, "Pushed Alt Path Left at %d - %d. Stack Size - %d", currPath.currPosition.row, currPath.currPosition.col, altPaths.size());
-                        printUI(buf);
-                    }
-                    if (!isWallRight()) { // adds right as an alternative path
-                        altPaths.push(AltPath(currPath.currPosition, Right));
-                        sprintf(buf, "Pushed Alt Path Right at %d - %d. Stack Size - %d", currPath.currPosition.row, currPath.currPosition.col, altPaths.size());
-                        printUI(buf);
-                    }
-                }
-            }
-            else if(!isWallRight())
-            {
-                if (!alreadyVisitedCurrentPosition && !isWallLeft())
-                {
-                    // add left as an alternative path
+
+        if(!isWallForward()) { // if forward is possible
+            // save alternate paths if not backtracking
+            if(!alreadyVisitedCurrentPosition) {
+                if (!isWallLeft()) { // adds left as an alternative path
                     altPaths.push(AltPath(currPath.currPosition, Left));
                     sprintf(buf, "Pushed Alt Path Left at %d - %d. Stack Size - %d", currPath.currPosition.row, currPath.currPosition.col, altPaths.size());
                     printUI(buf);
                 }
 
-                sprintf(buf, "Turning Right at %d - %d", currPath.currPosition.row, currPath.currPosition.col);
-                printUI(buf);
-                turnRight();
-                currPath.right();
-            }
-            else if(!isWallLeft())
-            {
-                sprintf(buf, "Turning Left at %d - %d", currPath.currPosition.row, currPath.currPosition.col);
-                printUI(buf);
-                turnLeft();
-                currPath.left();
+                if (!isWallRight()) { // adds right as an alternative path
+                    altPaths.push(AltPath(currPath.currPosition, Right));
+                    sprintf(buf, "Pushed Alt Path Right at %d - %d. Stack Size - %d", currPath.currPosition.row, currPath.currPosition.col, altPaths.size());
+                    printUI(buf);
+                }
             }
         }
 
-        if(!alreadyVisitedCurrentPosition)
-        {
-            visitedPositions.insert(currPath.currPosition.coordinateString());
+        else if(!isWallRight()) { // if right is possible
+            if (!alreadyVisitedCurrentPosition && !isWallLeft()) { // add left as an alternative path
+                altPaths.push(AltPath(currPath.currPosition, Left));
+                sprintf(buf, "Pushed Alt Path Left at %d - %d. Stack Size - %d", currPath.currPosition.row, currPath.currPosition.col, altPaths.size());
+                printUI(buf);
+            }
+
+            sprintf(buf, "Turning Right at %d - %d", currPath.currPosition.row, currPath.currPosition.col);
+            printUI(buf);
+            turnRight();
+            currPath.right();
+        }
+
+        else if(!isWallLeft()) { // if left is possible
+            sprintf(buf, "Turning Left at %d - %d", currPath.currPosition.row, currPath.currPosition.col);
+            printUI(buf);
+            turnLeft();
+            currPath.left();
         }
     }
 
+    if(!alreadyVisitedCurrentPosition) { // adding current position to visitedPositions if this is the first visit
+        visitedPositions.insert(currPath.currPosition.coordinateString());
+    }
+
     // move forward if there isn't a wall
-    if(forwardMove && !isWallForward())
-    {
+    if(forwardMove && !isWallForward()) {
         int wallCount = (isWallForward() ? 1 : 0) + (isWallLeft() ? 1 : 0) + (isWallRight() ? 1 : 0);
         sprintf(buf, "moving forward from %s", currPath.currPosition.debug());
         printUI(buf);
